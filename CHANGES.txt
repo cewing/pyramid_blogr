@@ -2,6 +2,11 @@
 ---
 
 -  Update to include Python 2.x and 3.x compatibility
+-  Include encryption of admin user's password
+-  Include jinja2 templates instead of Mako
+-  Include markdown filtering with pygments highlighting to format entries
+-  Include jinja2 macros for form fields to demonstrate uniform presentation of
+   form inputs.
 
 0.0
 ---
