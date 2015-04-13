@@ -1,7 +1,13 @@
-from wtforms import Form, BooleanField, TextField, TextAreaField, validators
-from wtforms import HiddenField
+from wtforms import (
+    Form,
+    HiddenField,
+    TextField,
+    TextAreaField,
+    validators,
+    )
 
 strip_filter = lambda x: x.strip() if x else None
+
 
 class BlogCreateForm(Form):
     title = TextField('Entry title', [validators.Length(min=1, max=255)],
@@ -9,5 +15,11 @@ class BlogCreateForm(Form):
     body = TextAreaField('Entry body', [validators.Length(min=1)],
                          filters=[strip_filter])
 
+
 class BlogUpdateForm(BlogCreateForm):
     id = HiddenField()
+
+
+class LoginForm(Form):
+    username = TextField('Username', [validators.Length(min=1, max=255)])
+    password = TextField('Password', [validators.Length(min=1, max=255)])

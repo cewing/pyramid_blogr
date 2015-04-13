@@ -14,12 +14,17 @@ requires = [
     'pyramid_debugtoolbar',
     'zope.sqlalchemy',
     'waitress',
+    'pyramid_jinja2',
     'wtforms',
-    'webhelpers'
+    'cryptacular',
+    'WebHelpers2',
+    'paginate',
+    'markdown',
+    'pygments',
     ]
 
 setup(name='pyramid_blogr',
-      version='0.0',
+      version='1.0',
       description='pyramid_blogr',
       long_description=README + '\n\n' +  CHANGES,
       classifiers=[

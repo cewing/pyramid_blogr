@@ -1,35 +1,50 @@
-from .forms import BlogCreateForm, BlogUpdateForm
-from pyramid.httpexceptions import HTTPNotFound, HTTPFound
-from pyramid.response import Response
-from pyramid.security import remember, forget
+from jinja2 import Markup
+import markdown
+from pyramid.httpexceptions import (
+    HTTPNotFound,
+    HTTPFound,
+    )
+from pyramid.security import (
+    authenticated_userid,
+    forget,
+    remember,
+    )
 from pyramid.view import view_config
 
-from sqlalchemy.exc import DBAPIError
-
+from .forms import (
+    BlogCreateForm,
+    BlogUpdateForm,
+    LoginForm,
+    )
 from .models import (
     DBSession,
+    Entry,
     User,
-    Entry
     )
 
-@view_config(route_name='home', renderer="pyramid_blogr:templates/index.mako")
+
+@view_config(route_name='home', renderer='pyramid_blogr:templates/index.jinja2')
 def index_page(request):
     page = int(request.params.get('page', 1))
-    paginator = Entry.get_paginator(request, page)
-    return {'paginator':paginator}
+    paginator = Entry.paginator(request, page)
+    form = None
+    if not authenticated_userid(request):
+        form = LoginForm()
+    return {'paginator': paginator, 'login_form': form}
 
 
-@view_config(route_name='blog', renderer="pyramid_blogr:templates/view_blog.mako")
+@view_config(route_name='blog', renderer='pyramid_blogr:templates/view_blog.jinja2')
 def blog_view(request):
     id = int(request.matchdict.get('id', -1))
     entry = Entry.by_id(id)
     if not entry:
         return HTTPNotFound()
-    return {'entry':entry}
+    logged_in = bool(authenticated_userid(request))
+    return {'entry': entry, 'logged_in': logged_in}
 
 
-@view_config(route_name='blog_action', match_param="action=create",
-             renderer="pyramid_blogr:templates/edit_blog.mako",
+@view_config(route_name='blog_action', match_param='action=create',
+             renderer='pyramid_blogr:templates/edit_blog.jinja2',
              permission='create')
 def blog_create(request):
     entry = Entry()
@@ -38,11 +53,11 @@ def blog_create(request):
         form.populate_obj(entry)
         DBSession.add(entry)
         return HTTPFound(location=request.route_url('home'))
-    return {'form':form, 'action':request.matchdict.get('action')}
+    return {'form': form, 'action': request.matchdict.get('action')}
 
 
-@view_config(route_name='blog_action', match_param="action=edit",
-             renderer="pyramid_blogr:templates/edit_blog.mako",
+@view_config(route_name='blog_action', match_param='action=edit',
+             renderer='pyramid_blogr:templates/edit_blog.jinja2',
              permission='edit')
 def blog_update(request):
     id = int(request.params.get('id', -1))
@@ -52,19 +67,23 @@ def blog_update(request):
     form = BlogUpdateForm(request.POST, entry)
     if request.method == 'POST' and form.validate():
         form.populate_obj(entry)
-        return HTTPFound(location=request.route_url('blog', id=entry.id,
-                                                    slug=entry.slug))
-    return {'form':form, 'action':request.matchdict.get('action')}
+        return HTTPFound(
+            location=request.route_url('blog', id=entry.id, slug=entry.slug)
+        )
+    return {'form': form, 'action': request.matchdict.get('action')}
 
 
-@view_config(route_name='auth', match_param="action=in", renderer="string",
-             request_method="POST")
-@view_config(route_name='auth', match_param="action=out", renderer="string")
+@view_config(route_name='auth', match_param='action=in', renderer='string',
+             request_method='POST')
+@view_config(route_name='auth', match_param='action=out', renderer='string')
 def sign_in_out(request):
-    username = request.POST.get('username')
-    if username:
-        user = User.by_name(username)
-        if user and user.verify_password(request.POST.get('password')):
+    login_form = None
+    if request.method == 'POST':
+        login_form = LoginForm(request.POST)
+
+    if login_form and login_form.validate():
+        user = User.by_name(login_form.username.data)
+        if user and user.verify_password(login_form.password.data):
             headers = remember(request, user.name)
         else:
             headers = forget(request)
@@ -72,3 +91,14 @@ def sign_in_out(request):
         headers = forget(request)
     return HTTPFound(location=request.route_url('home'),
                      headers=headers)
+
+
+# Jinja2 markdown filter
+def render_markdown(content, linenums=False, pygments_style='default'):
+    ext = "codehilite(linenums={linenums}, pygments_style={pygments_style})"
+    output = Markup(
+        markdown.markdown(
+            content,
+            extensions=[ext.format(**locals()), 'fenced_code'])
+    )
+    return output
